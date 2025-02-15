@@ -1,13 +1,13 @@
 #ifndef _ESP_FIREBASE_H_
-#define  _ESP_FIREBASE_H_
-#include "esp_http_client.h"
+#define _ESP_FIREBASE_H_
 
+#include "esp_http_client.h"
+#include <string>
 
 #define HTTP_RECV_BUFFER_SIZE 4096
 
 namespace ESPFirebase 
 {
-
     struct user_account_t
     {
         const char* user_email;
@@ -19,62 +19,48 @@ namespace ESPFirebase
         esp_err_t err;
         int status_code;
     }; 
-    /**
-     * @brief Class over the esp_http_client, handles auth and should be passed as ptr to other classes such as RTDB 
-     * 
-     */
+
     class FirebaseApp 
-        {
-        private:
-            const char* https_certificate;
-            std::string api_key = "";
-            std::string register_url = "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=";
-            std::string login_url = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=";
-            std::string auth_url = "https://securetoken.googleapis.com/v1/token?key=";
-            std::string refresh_token = "";
-            esp_http_client_handle_t client;
-            bool client_initialized = false;
-
-
-
-            void firebaseClientInit(void);
+    {
+    private:
+        const char* https_certificate;
+        std::string api_key = "";
+        std::string register_url = "https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=";
+        std::string login_url = "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=";
+        std::string auth_url = "https://securetoken.googleapis.com/v1/token?key=";
+        std::string refresh_token = "";
         
-            esp_err_t getRefreshToken(bool register_account);
-            esp_err_t getAuthToken();
-            esp_err_t nvsSaveTokens(); // useless until expire time added
-            esp_err_t nvsReadTokens(); // useless until expire time added
-            
+        uint32_t token_expiry_time = 0;  // ⬅️ New: Store token expiration time (in seconds)
+        
+        esp_http_client_handle_t client;
+        bool client_initialized = false;
 
-        public:
-            user_account_t user_account = {"", ""};
+        void firebaseClientInit(void);
+        
+        esp_err_t getRefreshToken(bool register_account);
+        esp_err_t getAuthToken();
 
-            char* local_response_buffer;
+        esp_err_t nvsSaveTokens();  // ⬅️ Will now store auth_token, refresh_token, and token_expiry_time
+        esp_err_t nvsReadTokens();  // ⬅️ Will now retrieve auth_token, refresh_token, and token_expiry_time
 
-            std::string auth_token = "";
+    public:
+        user_account_t user_account = {"", ""};
 
-            /**
-             * @brief Standard http request. Use after firebaseClientInit(). response stored in local_response_buffer. 
-             * 
-             * @param url Request url
-             * @param method Request method
-             * @param post_field Optional post field. Used when method is POST
-             * @return Returns struct http_ret_t: esp_err_t + http status code.
-             */
-            http_ret_t performRequest(const char* url, esp_http_client_method_t method, std::string post_field = "");
-            esp_err_t setHeader(const char* header, const char* value);
-            
-            void clearHTTPBuffer(void);
-            
-          
+        char* local_response_buffer;
+        std::string auth_token = "";
 
-            FirebaseApp(const char * api_key);
-            ~FirebaseApp();
-            esp_err_t registerUserAccount(const user_account_t& account);
-            esp_err_t loginUserAccount(const user_account_t& account);
-        };
+        http_ret_t performRequest(const char* url, esp_http_client_method_t method, std::string post_field = "");
+        esp_err_t setHeader(const char* header, const char* value);
+        void clearHTTPBuffer(void);
+        
+        FirebaseApp(const char* api_key);
+        ~FirebaseApp();
+
+        esp_err_t registerUserAccount(const user_account_t& account);
+        esp_err_t loginUserAccount(const user_account_t& account);
+        
+        void ensureValidAuthToken();  // ⬅️ New: Checks and refreshes token before expiry
+    };
 }
-
-
-
 
 #endif
